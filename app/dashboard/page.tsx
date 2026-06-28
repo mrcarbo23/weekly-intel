@@ -27,14 +27,22 @@ export default function Dashboard() {
 
   const addSource = async (e: React.FormEvent) => {
     e.preventDefault();
-    const res = await fetch("/api/sources", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(newSource),
-    });
-    if (res.ok) {
-      setNewSource({ name: "", source_type: "substack", url: "" });
-      fetchSources();
+    try {
+      const res = await fetch("/api/sources", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(newSource),
+      });
+      if (res.ok) {
+        setNewSource({ name: "", source_type: "substack", url: "" });
+        setStatus("✅ Source added");
+        fetchSources();
+      } else {
+        const detail = await res.text();
+        setStatus(`❌ Failed to add source (${res.status}): ${detail}`);
+      }
+    } catch (err) {
+      setStatus(`❌ Failed to add source: ${err}`);
     }
   };
 

@@ -7,11 +7,20 @@ from .models import Base
 
 
 def get_database_url() -> str:
-    """Get database URL from environment, defaulting to SQLite."""
-    return os.environ.get(
-        "DATABASE_URL",
-        "sqlite:///./weekly_intel.db"
-    )
+    """Get database URL from environment, defaulting to SQLite.
+
+    On Vercel the deployment filesystem is read-only except for /tmp, so a
+    relative SQLite path fails to open for writes. When DATABASE_URL is not
+    set but we're running on Vercel, fall back to a writable /tmp path.
+    NOTE: /tmp is ephemeral per-instance — set DATABASE_URL to a managed
+    Postgres (Vercel Postgres / Neon) for persistent storage.
+    """
+    url = os.environ.get("DATABASE_URL")
+    if url:
+        return url
+    if os.environ.get("VERCEL"):
+        return "sqlite:////tmp/weekly_intel.db"
+    return "sqlite:///./weekly_intel.db"
 
 
 def create_db_engine(database_url: str = None):
