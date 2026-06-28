@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+env/
+.venv/
+*.egg
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+
+# Gmail OAuth
+gmail_token.json
+gmail_credentials.json
+
+# Output (keep directory, not files)
+output/digests/*.md
+output/digests/*.html
+
+# Node/Next.js
+node_modules/
+.next/
+.vercel/
+npm-debug.log*
+yarn-error.log*
+*.tsbuildinfo
+
+# Misc
+.DS_Store
+*.log
