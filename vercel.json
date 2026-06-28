@@ -3,9 +3,9 @@
   "devCommand": "npm run dev",
   "framework": "nextjs",
   "functions": {
-    "api/ingest.py": { "runtime": "python3.11", "maxDuration": 300 },
-    "api/process.py": { "runtime": "python3.11", "maxDuration": 300 },
-    "api/digest.py": { "runtime": "python3.11", "maxDuration": 300 },
-    "api/sources.py": { "runtime": "python3.11", "maxDuration": 60 }
+    "api/ingest.py": { "maxDuration": 300 },
+    "api/process.py": { "maxDuration": 300 },
+    "api/digest.py": { "maxDuration": 300 },
+    "api/sources.py": { "maxDuration": 60 }
   }
 }
