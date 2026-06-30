@@ -46,6 +46,22 @@ export default function Dashboard() {
     }
   };
 
+  const deleteSource = async (s: Source) => {
+    if (!confirm(`Delete source "${s.name}"?`)) return;
+    try {
+      const res = await fetch(`/api/sources?id=${s.id}`, { method: "DELETE" });
+      if (res.ok) {
+        setStatus(`✅ Deleted "${s.name}"`);
+        fetchSources();
+      } else {
+        const detail = await res.text();
+        setStatus(`❌ Failed to delete source (${res.status}): ${detail}`);
+      }
+    } catch (err) {
+      setStatus(`❌ Failed to delete source: ${err}`);
+    }
+  };
+
   const runPipeline = async (step: "ingest" | "process" | "digest") => {
     setLoading(true);
     setStatus(`Running ${step}...`);
@@ -120,6 +136,14 @@ export default function Dashboard() {
                     Last: {new Date(s.last_fetched_at).toLocaleDateString()}
                   </span>
                 )}
+                <button
+                  onClick={() => deleteSource(s)}
+                  aria-label={`Delete ${s.name}`}
+                  title="Delete source"
+                  className="text-xs text-red-500 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded"
+                >
+                  Delete
+                </button>
               </div>
             ))}
           </div>
