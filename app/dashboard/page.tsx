@@ -46,6 +46,25 @@ export default function Dashboard() {
     }
   };
 
+  const toggleActive = async (s: Source) => {
+    try {
+      const res = await fetch("/api/sources", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: s.id, active: !s.active }),
+      });
+      if (res.ok) {
+        setStatus(`✅ "${s.name}" is now ${!s.active ? "active" : "inactive"}`);
+        fetchSources();
+      } else {
+        const detail = await res.text();
+        setStatus(`❌ Failed to update source (${res.status}): ${detail}`);
+      }
+    } catch (err) {
+      setStatus(`❌ Failed to update source: ${err}`);
+    }
+  };
+
   const deleteSource = async (s: Source) => {
     if (!confirm(`Delete source "${s.name}"?`)) return;
     try {
@@ -128,9 +147,20 @@ export default function Dashboard() {
                   <p className="font-medium text-sm">{s.name}</p>
                   <p className="text-xs text-gray-500 truncate">{s.url}</p>
                 </div>
-                <span className={`text-xs ${s.active ? "text-green-600" : "text-gray-400"}`}>
+                <button
+                  onClick={() => toggleActive(s)}
+                  role="switch"
+                  aria-checked={s.active}
+                  aria-label={`Toggle ${s.name} ${s.active ? "inactive" : "active"}`}
+                  title={s.active ? "Click to deactivate" : "Click to activate"}
+                  className={`text-xs px-2 py-1 rounded border ${
+                    s.active
+                      ? "text-green-700 border-green-200 bg-green-50 hover:bg-green-100"
+                      : "text-gray-400 border-gray-200 bg-gray-50 hover:bg-gray-100"
+                  }`}
+                >
                   {s.active ? "Active" : "Inactive"}
-                </span>
+                </button>
                 {s.last_fetched_at && (
                   <span className="text-xs text-gray-400">
                     Last: {new Date(s.last_fetched_at).toLocaleDateString()}

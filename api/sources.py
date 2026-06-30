@@ -55,6 +55,40 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(result).encode())
 
+    def do_PATCH(self):
+        init_db()
+
+        length = int(self.headers.get("Content-Length", 0))
+        body = json.loads(self.rfile.read(length)) if length else {}
+
+        # id from the body or ?id=<n>
+        source_id = body.get("id")
+        if source_id is None:
+            params = parse_qs(urlparse(self.path).query)
+            if params.get("id"):
+                source_id = params["id"][0]
+        try:
+            source_id = int(source_id)
+        except (TypeError, ValueError):
+            return self._respond(400, {"error": "missing or invalid source id"})
+
+        with get_db() as db:
+            source = db.get(Source, source_id)
+            if source is None:
+                return self._respond(404, {"error": f"source {source_id} not found"})
+
+            # Only update fields that were supplied.
+            if "active" in body:
+                source.active = bool(body["active"])
+            if "name" in body:
+                source.name = body["name"]
+            if "url" in body:
+                source.url = body["url"]
+            db.commit()
+            result = {"id": source.id, "name": source.name, "active": source.active}
+
+        self._respond(200, result)
+
     def do_DELETE(self):
         init_db()
 
