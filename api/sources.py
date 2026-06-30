@@ -1,5 +1,6 @@
 """Vercel serverless function: manage sources."""
 from http.server import BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
 import json
 import os
 import sys
@@ -53,3 +54,36 @@ class handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json")
         self.end_headers()
         self.wfile.write(json.dumps(result).encode())
+
+    def do_DELETE(self):
+        init_db()
+
+        # Accept the id from ?id=<n> or a JSON body {"id": <n>}.
+        source_id = None
+        params = parse_qs(urlparse(self.path).query)
+        if params.get("id"):
+            source_id = params["id"][0]
+        else:
+            length = int(self.headers.get("Content-Length", 0))
+            if length:
+                source_id = json.loads(self.rfile.read(length)).get("id")
+
+        try:
+            source_id = int(source_id)
+        except (TypeError, ValueError):
+            return self._respond(400, {"error": "missing or invalid source id"})
+
+        with get_db() as db:
+            source = db.get(Source, source_id)
+            if source is None:
+                return self._respond(404, {"error": f"source {source_id} not found"})
+            db.delete(source)
+            db.commit()
+
+        self._respond(200, {"deleted": source_id})
+
+    def _respond(self, status, payload):
+        self.send_response(status)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(payload).encode())
