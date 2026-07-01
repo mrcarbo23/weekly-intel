@@ -9,6 +9,36 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 class handler(BaseHTTPRequestHandler):
+    def do_GET(self):
+        """Serve the most recent digest's rendered HTML."""
+        from src.storage.database import init_db, get_db
+        from src.storage.models import WeeklyDigest
+
+        init_db()
+        with get_db() as db:
+            digest = (
+                db.query(WeeklyDigest)
+                .order_by(WeeklyDigest.generated_at.desc())
+                .first()
+            )
+            html = digest.html_content if digest else None
+
+        if not html:
+            html = (
+                "<!DOCTYPE html><html><body style=\"font-family:system-ui;"
+                "max-width:640px;margin:80px auto;text-align:center;color:#555\">"
+                "<h2>No digest yet</h2><p>Run the pipeline "
+                "(Ingest → Process → Generate Digest) to create one.</p>"
+                "</body></html>"
+            )
+
+        body = html.encode()
+        self.send_response(200)
+        self.send_header("Content-Type", "text/html; charset=utf-8")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self):
         from src.storage.database import init_db, get_db
         from src.processing.clustering import cluster_week_items

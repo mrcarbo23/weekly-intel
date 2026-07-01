@@ -213,6 +213,18 @@ export default function Dashboard() {
           </button>
         </form>
       </section>
+
+      {/* Latest digest link */}
+      <div className="text-center mb-6">
+        <a
+          href="/api/digest"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-sm text-blue-600 hover:text-blue-800 underline"
+        >
+          View latest digest (HTML) →
+        </a>
+      </div>
     </div>
   );
 }
