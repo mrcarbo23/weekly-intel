@@ -89,16 +89,26 @@ def generate_weekly_digest(db: Session, week_start: datetime = None) -> WeeklyDi
     html_content = render_html(context)
 
     week_str = week_start.strftime("%Y-%W")
-    output_dir = os.environ.get("OUTPUT_DIR", "output/digests")
-    os.makedirs(output_dir, exist_ok=True)
+    # Vercel's filesystem is read-only except for /tmp, so default there when
+    # running on Vercel. The rendered content is also persisted on the digest
+    # row below, so writing the files is a convenience, not the source of truth.
+    default_dir = "/tmp/digests" if os.environ.get("VERCEL") else "output/digests"
+    output_dir = os.environ.get("OUTPUT_DIR", default_dir)
 
     md_path = os.path.join(output_dir, f"{week_str}-digest.md")
     html_path = os.path.join(output_dir, f"{week_str}-digest.html")
 
-    with open(md_path, "w") as f:
-        f.write(markdown_content)
-    with open(html_path, "w") as f:
-        f.write(html_content)
+    # Best-effort file write — never let a read-only filesystem fail the digest,
+    # since the content is stored on the WeeklyDigest row regardless.
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+        with open(md_path, "w") as f:
+            f.write(markdown_content)
+        with open(html_path, "w") as f:
+            f.write(html_content)
+    except OSError as exc:
+        logger.warning("Could not write digest files to %s: %s", output_dir, exc)
+        md_path = html_path = None
 
     digest = WeeklyDigest(
         week_start=week_start,
