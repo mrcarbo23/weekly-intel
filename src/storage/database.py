@@ -48,11 +48,16 @@ def _sync_missing_columns(eng):
     Idempotent and safe to run on every init; works on Postgres and SQLite.
     """
     insp = inspect(eng)
+    is_postgres = eng.dialect.name == "postgresql"
     existing_tables = set(insp.get_table_names())
     for table in Base.metadata.sorted_tables:
         if table.name not in existing_tables:
             continue  # create_all already made it with the full, current schema
-        live_cols = {c["name"] for c in insp.get_columns(table.name)}
+        live_columns = insp.get_columns(table.name)
+        live_cols = {c["name"] for c in live_columns}
+        model_cols = {c.name for c in table.columns}
+
+        # 1. Add columns the model gained but the live table lacks.
         for col in table.columns:
             if col.name in live_cols:
                 continue
@@ -64,6 +69,23 @@ def _sync_missing_columns(eng):
                 logger.warning("Schema sync: added missing column %s.%s", table.name, col.name)
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error("Schema sync failed for %s.%s: %s", table.name, col.name, exc)
+
+        # 2. Relax NOT NULL on "orphan" columns the model dropped but the live
+        #    table still requires — otherwise inserts fail on a column the app
+        #    no longer supplies. Only meaningful on Postgres (SQLite doesn't
+        #    enforce these the same way and lacks the ALTER syntax).
+        if not is_postgres:
+            continue
+        for col in live_columns:
+            if col["name"] in model_cols or col.get("nullable", True):
+                continue
+            ddl = f'ALTER TABLE {table.name} ALTER COLUMN {col["name"]} DROP NOT NULL'
+            try:
+                with eng.begin() as conn:
+                    conn.execute(text(ddl))
+                logger.warning("Schema sync: dropped NOT NULL on orphan column %s.%s", table.name, col["name"])
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Schema sync failed relaxing %s.%s: %s", table.name, col["name"], exc)
 
 
 def init_db():
