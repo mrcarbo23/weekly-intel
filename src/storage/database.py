@@ -50,6 +50,7 @@ def _sync_missing_columns(eng):
     insp = inspect(eng)
     is_postgres = eng.dialect.name == "postgresql"
     existing_tables = set(insp.get_table_names())
+    model_tables = {t.name for t in Base.metadata.sorted_tables}
     for table in Base.metadata.sorted_tables:
         if table.name not in existing_tables:
             continue  # create_all already made it with the full, current schema
@@ -86,6 +87,26 @@ def _sync_missing_columns(eng):
                 logger.warning("Schema sync: dropped NOT NULL on orphan column %s.%s", table.name, col["name"])
             except Exception as exc:  # pragma: no cover - defensive
                 logger.error("Schema sync failed relaxing %s.%s: %s", table.name, col["name"], exc)
+
+        # 3. Drop foreign-key constraints that reference a table no longer in the
+        #    model (e.g. a table that was renamed: story_clusters kept an FK to
+        #    the old "processed_items" after it became "content_items"). Such a
+        #    constraint can never be satisfied — the referenced rows live in the
+        #    new table — so every insert fails with a ForeignKeyViolation.
+        #    create_all won't re-point it (the table already exists); the app
+        #    enforces the relationship in code, so dropping the stale DB-level
+        #    constraint is safe.
+        for fk in insp.get_foreign_keys(table.name):
+            if fk.get("referred_table") in model_tables or not fk.get("name"):
+                continue
+            ddl = f'ALTER TABLE {table.name} DROP CONSTRAINT "{fk["name"]}"'
+            try:
+                with eng.begin() as conn:
+                    conn.execute(text(ddl))
+                logger.warning("Schema sync: dropped stale FK %s on %s (referred missing table %s)",
+                               fk["name"], table.name, fk.get("referred_table"))
+            except Exception as exc:  # pragma: no cover - defensive
+                logger.error("Schema sync failed dropping FK %s on %s: %s", fk["name"], table.name, exc)
 
 
 def init_db():
