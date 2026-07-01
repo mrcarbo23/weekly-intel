@@ -28,9 +28,18 @@ def get_gmail_service():
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
-        else:
+        elif os.path.exists(creds_path):
+            # Interactive OAuth is only possible in a local/dev environment with
+            # a browser. It cannot run in a serverless deployment.
             flow = InstalledAppFlow.from_client_secrets_file(creds_path, SCOPES)
             creds = flow.run_local_server(port=0)
+        else:
+            raise RuntimeError(
+                "Gmail is not authenticated in this environment: no valid token "
+                f"at GMAIL_TOKEN_PATH ({token_path}) and no client secrets at "
+                f"GMAIL_CREDENTIALS_PATH ({creds_path}). Authenticate locally to "
+                "generate a token, or remove/deactivate the gmail source."
+            )
         with open(token_path, "w") as f:
             f.write(creds.to_json())
 

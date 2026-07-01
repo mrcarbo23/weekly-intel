@@ -16,12 +16,28 @@ class handler(BaseHTTPRequestHandler):
         from scripts.run_pipeline import ingest_source
 
         total_new = 0
+        report = []
         with get_db() as db:
             sources = db.query(Source).filter(Source.active == True).all()
             for source in sources:
-                total_new += ingest_source(db, source)
+                entry = {"name": source.name, "source_type": source.source_type}
+                # Isolate each source: one misconfigured/failing source (e.g. a
+                # gmail source without OAuth creds, or a substack source with no
+                # URL) must not abort ingestion of the others.
+                try:
+                    new_items = ingest_source(db, source)
+                    entry["new_items"] = new_items
+                    entry["status"] = "ok"
+                    total_new += new_items
+                except Exception as exc:
+                    db.rollback()
+                    entry["new_items"] = 0
+                    entry["status"] = "error"
+                    entry["error"] = str(exc)[:300]
+                report.append(entry)
 
+        payload = {"new_items": total_new, "sources": report}
         self.send_response(200)
         self.send_header("Content-Type", "application/json")
         self.end_headers()
-        self.wfile.write(json.dumps({"new_items": total_new}).encode())
+        self.wfile.write(json.dumps(payload).encode())

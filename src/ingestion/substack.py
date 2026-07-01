@@ -18,7 +18,20 @@ def fetch_substack_feed(url: str) -> list[dict]:
     Returns list of article dicts.
     """
     feed_url = _normalize_feed_url(url)
-    feed = feedparser.parse(feed_url)
+
+    # Fetch with a real User-Agent via requests rather than letting feedparser
+    # fetch the URL itself: Substack rejects the default feedparser agent, and
+    # going through requests gives us proper TLS verification and timeouts.
+    try:
+        resp = requests.get(
+            feed_url,
+            headers={"User-Agent": "Mozilla/5.0 (compatible; WeeklyIntel/1.0; +https://vercel.app)"},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        feed = feedparser.parse(resp.content)
+    except requests.RequestException as exc:
+        raise RuntimeError(f"failed to fetch feed {feed_url}: {exc}") from exc
 
     articles = []
     for entry in feed.entries:

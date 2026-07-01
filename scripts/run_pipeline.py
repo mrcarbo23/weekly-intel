@@ -37,6 +37,8 @@ def ingest_source(db, source: Source) -> int:
 
     items = []
     if source.source_type == "substack":
+        if not source.url:
+            raise ValueError("substack source has no URL configured")
         items = fetch_substack_feed(source.url)
     elif source.source_type == "gmail":
         config = source.config or {}
@@ -46,6 +48,8 @@ def ingest_source(db, source: Source) -> int:
             days_back=config.get("days_back", 7),
         )
     elif source.source_type == "youtube":
+        if not source.url:
+            raise ValueError("youtube source has no URL configured")
         config = source.config or {}
         items = fetch_channel_videos(source.url, max_videos=config.get("max_videos", 10))
 
